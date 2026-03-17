@@ -164,6 +164,11 @@ def create_state_level_map():
         .leaflet-interactive {
             cursor: pointer !important;
         }
+        .leaflet-pane svg path.leaflet-interactive:focus,
+        .leaflet-pane svg path.leaflet-interactive:focus-visible,
+        .leaflet-pane svg:focus {
+            outline: none !important;
+        }
         .leaflet-control,
         .leaflet-tooltip,
         .leaflet-popup-content,
