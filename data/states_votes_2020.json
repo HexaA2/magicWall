@@ -1,0 +1,27 @@
+{
+  "NY": {
+    "democrat": 5244006,
+    "republican": 3250230,
+    "third_party": 121969
+  },
+  "NJ": {
+    "democrat": 2608335,
+    "republican": 1883274,
+    "third_party": 72625
+  },
+  "PA": {
+    "democrat": 3459923,
+    "republican": 3378263,
+    "third_party": 87069
+  },
+  "ME": {
+    "democrat": 430473,
+    "republican": 359899,
+    "third_party": 23368
+  },
+  "VA": {
+    "democrat": 2413568,
+    "republican": 1962430,
+    "third_party": 84526
+  }
+}

@@ -1,0 +1,337 @@
+{
+  "42001": {
+    "democrat": 19842,
+    "republican": 40248,
+    "third_party": 560
+  },
+  "42003": {
+    "democrat": 429916,
+    "republican": 283595,
+    "third_party": 6993
+  },
+  "42005": {
+    "democrat": 8553,
+    "republican": 28296,
+    "third_party": 270
+  },
+  "42007": {
+    "democrat": 37196,
+    "republican": 56837,
+    "third_party": 810
+  },
+  "42009": {
+    "democrat": 4336,
+    "republican": 23658,
+    "third_party": 166
+  },
+  "42011": {
+    "democrat": 91125,
+    "republican": 116677,
+    "third_party": 2036
+  },
+  "42013": {
+    "democrat": 18127,
+    "republican": 46352,
+    "third_party": 470
+  },
+  "42015": {
+    "democrat": 7990,
+    "republican": 22937,
+    "third_party": 265
+  },
+  "42017": {
+    "democrat": 198431,
+    "republican": 198722,
+    "third_party": 3875
+  },
+  "42019": {
+    "democrat": 40661,
+    "republican": 79773,
+    "third_party": 1006
+  },
+  "42021": {
+    "democrat": 21177,
+    "republican": 49408,
+    "third_party": 551
+  },
+  "42023": {
+    "democrat": 538,
+    "republican": 1654,
+    "third_party": 27
+  },
+  "42025": {
+    "democrat": 11394,
+    "republican": 23708,
+    "third_party": 293
+  },
+  "42027": {
+    "democrat": 41119,
+    "republican": 38829,
+    "third_party": 844
+  },
+  "42029": {
+    "democrat": 184281,
+    "republican": 137299,
+    "third_party": 3384
+  },
+  "42031": {
+    "democrat": 4562,
+    "republican": 15036,
+    "third_party": 135
+  },
+  "42033": {
+    "democrat": 9647,
+    "republican": 30481,
+    "third_party": 302
+  },
+  "42035": {
+    "democrat": 5395,
+    "republican": 12965,
+    "third_party": 162
+  },
+  "42037": {
+    "democrat": 11083,
+    "republican": 21190,
+    "third_party": 303
+  },
+  "42039": {
+    "democrat": 12858,
+    "republican": 29685,
+    "third_party": 329
+  },
+  "42041": {
+    "democrat": 66255,
+    "republican": 80267,
+    "third_party": 1874
+  },
+  "42043": {
+    "democrat": 78327,
+    "republican": 69474,
+    "third_party": 1725
+  },
+  "42045": {
+    "democrat": 201324,
+    "republican": 123421,
+    "third_party": 3427
+  },
+  "42047": {
+    "democrat": 4483,
+    "republican": 12543,
+    "third_party": 127
+  },
+  "42049": {
+    "democrat": 67456,
+    "republican": 68866,
+    "third_party": 1273
+  },
+  "42051": {
+    "democrat": 19548,
+    "republican": 43633,
+    "third_party": 291
+  },
+  "42053": {
+    "democrat": 724,
+    "republican": 1902,
+    "third_party": 24
+  },
+  "42055": {
+    "democrat": 23543,
+    "republican": 59604,
+    "third_party": 737
+  },
+  "42057": {
+    "democrat": 1102,
+    "republican": 7039,
+    "third_party": 36
+  },
+  "42059": {
+    "democrat": 4592,
+    "republican": 12319,
+    "third_party": 325
+  },
+  "42061": {
+    "democrat": 5368,
+    "republican": 17627,
+    "third_party": 161
+  },
+  "42063": {
+    "democrat": 12697,
+    "republican": 29215,
+    "third_party": 317
+  },
+  "42065": {
+    "democrat": 4707,
+    "republican": 18235,
+    "third_party": 187
+  },
+  "42067": {
+    "democrat": 2290,
+    "republican": 9721,
+    "third_party": 93
+  },
+  "42069": {
+    "democrat": 59510,
+    "republican": 56261,
+    "third_party": 819
+  },
+  "42071": {
+    "democrat": 120119,
+    "republican": 166261,
+    "third_party": 2877
+  },
+  "42073": {
+    "democrat": 15440,
+    "republican": 31347,
+    "third_party": 323
+  },
+  "42075": {
+    "democrat": 24734,
+    "republican": 48282,
+    "third_party": 676
+  },
+  "42077": {
+    "democrat": 96317,
+    "republican": 91207,
+    "third_party": 2286
+  },
+  "42079": {
+    "democrat": 62504,
+    "republican": 92444,
+    "third_party": 1202
+  },
+  "42081": {
+    "democrat": 17216,
+    "republican": 41961,
+    "third_party": 508
+  },
+  "42083": {
+    "democrat": 5115,
+    "republican": 14401,
+    "third_party": 166
+  },
+  "42085": {
+    "democrat": 20145,
+    "republican": 37761,
+    "third_party": 504
+  },
+  "42087": {
+    "democrat": 4735,
+    "republican": 17184,
+    "third_party": 152
+  },
+  "42089": {
+    "democrat": 42007,
+    "republican": 42676,
+    "third_party": 842
+  },
+  "42091": {
+    "democrat": 317103,
+    "republican": 198311,
+    "third_party": 5492
+  },
+  "42093": {
+    "democrat": 3862,
+    "republican": 5944,
+    "third_party": 102
+  },
+  "42095": {
+    "democrat": 86655,
+    "republican": 89817,
+    "third_party": 1743
+  },
+  "42097": {
+    "democrat": 12863,
+    "republican": 30240,
+    "third_party": 419
+  },
+  "42099": {
+    "democrat": 6385,
+    "republican": 19073,
+    "third_party": 267
+  },
+  "42101": {
+    "democrat": 568571,
+    "republican": 144311,
+    "third_party": 8559
+  },
+  "42103": {
+    "democrat": 13132,
+    "republican": 21537,
+    "third_party": 281
+  },
+  "42105": {
+    "democrat": 1675,
+    "republican": 7334,
+    "third_party": 76
+  },
+  "42107": {
+    "democrat": 20882,
+    "republican": 51665,
+    "third_party": 637
+  },
+  "42109": {
+    "democrat": 5239,
+    "republican": 14664,
+    "third_party": 135
+  },
+  "42111": {
+    "democrat": 8596,
+    "republican": 31993,
+    "third_party": 292
+  },
+  "42113": {
+    "democrat": 976,
+    "republican": 2721,
+    "third_party": 24
+  },
+  "42115": {
+    "democrat": 6093,
+    "republican": 16114,
+    "third_party": 197
+  },
+  "42117": {
+    "democrat": 5100,
+    "republican": 16272,
+    "third_party": 215
+  },
+  "42119": {
+    "democrat": 8015,
+    "republican": 12969,
+    "third_party": 204
+  },
+  "42121": {
+    "democrat": 7624,
+    "republican": 18883,
+    "third_party": 225
+  },
+  "42123": {
+    "democrat": 6212,
+    "republican": 14345,
+    "third_party": 166
+  },
+  "42125": {
+    "democrat": 44910,
+    "republican": 75929,
+    "third_party": 778
+  },
+  "42127": {
+    "democrat": 9150,
+    "republican": 20071,
+    "third_party": 223
+  },
+  "42129": {
+    "democrat": 74904,
+    "republican": 135008,
+    "third_party": 1538
+  },
+  "42131": {
+    "democrat": 4680,
+    "republican": 10222,
+    "third_party": 150
+  },
+  "42133": {
+    "democrat": 91926,
+    "republican": 154884,
+    "third_party": 2400
+  }
+}
