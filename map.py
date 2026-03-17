@@ -159,9 +159,19 @@ def create_state_level_map():
         '''<style>
         .leaflet-container {
             background-color: #1a1a1a !important;
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
         }
         .leaflet-interactive {
             cursor: pointer !important;
+        }
+        .leaflet-control,
+        .leaflet-tooltip,
+        .leaflet-popup-content,
+        .leaflet-popup-content-wrapper,
+        #viewToggle,
+        #yearToggle,
+        #colorModeSelect {
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
         }
         </style>'''
     ))
@@ -524,11 +534,12 @@ def create_state_level_map():
     <div style="position: fixed; 
                 top: 10px; left: 50px; width: 300px; height: 80px; 
                 background-color: #2a2a2a; border:2px solid #9D4EDD; z-index:9999; 
-                font-size:16px; font-weight: bold; padding: 10px; color: #E0AAFF; border-radius: 5px;">
-        <b>State Overview Map</b><br>
+                font-size:16px; font-weight: bold; padding: 10px; color: #E0AAFF; border-radius: 5px;
+                font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;">
+        <b>East Coast Magic Wall</b><br>
         NY, NJ, PA, ME, VA<br>
         <span style="font-size: 12px; font-weight: normal; color: #B59FFF;">
-            Colors are 2024 D-R gradient
+            2020/2024 election county and state view
         </span>
     </div>
     '''
