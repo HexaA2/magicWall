@@ -228,7 +228,12 @@ def create_state_level_map():
             aliases=['State:', 'Democrat:', 'Republican:', 'Third-Party:'],
             labels=True,
             localize=True,
-            sticky=False
+            sticky=False,
+            style=(
+                "background-color: #242424; color: #E0AAFF; "
+                "border: 1px solid #9D4EDD; border-radius: 4px; "
+                "font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;"
+            )
         ),
         name='State Boundaries'
     )
@@ -288,7 +293,12 @@ def create_state_level_map():
             aliases=['County:', 'Democrat:', 'Republican:', 'Third-Party:'],
             labels=True,
             localize=True,
-            sticky=False
+            sticky=False,
+            style=(
+                "background-color: #242424; color: #E0AAFF; "
+                "border: 1px solid #9D4EDD; border-radius: 4px; "
+                "font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;"
+            )
         ),
         name='County Overlay',
         show=False
@@ -535,7 +545,7 @@ def create_state_level_map():
                 top: 10px; left: 50px; width: 300px; height: 80px; 
                 background-color: #2a2a2a; border:2px solid #9D4EDD; z-index:9999; 
                 font-size:16px; font-weight: bold; padding: 10px; color: #E0AAFF; border-radius: 5px;
-                font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;">
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
         <b>East Coast Magic Wall</b><br>
         NY, NJ, PA, ME, VA<br>
         <span style="font-size: 12px; font-weight: normal; color: #B59FFF;">
