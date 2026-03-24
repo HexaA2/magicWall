@@ -1,4 +1,5 @@
 import json
+import csv
 from pathlib import Path
 
 import geopandas as gpd
@@ -6,7 +7,7 @@ import folium
 
 # States to include
 TARGET_STATES = ['NY', 'NJ', 'PA', 'ME', 'VA']
-STATE_FIPS = {
+TARGET_STATE_FIPS = {
     'NY': '36',
     'NJ': '34',
     'PA': '42',
@@ -14,10 +15,23 @@ STATE_FIPS = {
     'VA': '51'
 }
 
+ALL_STATE_FIPS = {
+    'AL': '01', 'AK': '02', 'AZ': '04', 'AR': '05', 'CA': '06', 'CO': '08', 'CT': '09', 'DE': '10',
+    'DC': '11', 'FL': '12', 'GA': '13', 'HI': '15', 'ID': '16', 'IL': '17', 'IN': '18', 'IA': '19',
+    'KS': '20', 'KY': '21', 'LA': '22', 'ME': '23', 'MD': '24', 'MA': '25', 'MI': '26', 'MN': '27',
+    'MS': '28', 'MO': '29', 'MT': '30', 'NE': '31', 'NV': '32', 'NH': '33', 'NJ': '34', 'NM': '35',
+    'NY': '36', 'NC': '37', 'ND': '38', 'OH': '39', 'OK': '40', 'OR': '41', 'PA': '42', 'RI': '44',
+    'SC': '45', 'SD': '46', 'TN': '47', 'TX': '48', 'UT': '49', 'VT': '50', 'VA': '51', 'WA': '53',
+    'WV': '54', 'WI': '55', 'WY': '56'
+}
+FIPS_TO_STATE = {v: k for k, v in ALL_STATE_FIPS.items()}
+EXCLUDED_STATE_FIPS = {'02', '15'}  # Alaska, Hawaii
+
 BASE_DIR = Path(__file__).resolve().parent
-STATE_VOTES_FILE_2024 = BASE_DIR / 'data' / 'states_votes_2024.json'
-STATE_VOTES_FILE_2020 = BASE_DIR / 'data' / 'states_votes_2020.json'
-COUNTY_VOTES_DIR = BASE_DIR / 'data' / 'counties'
+# Use legacy 2024 county file so votes align with TIGER county GEOIDs/shapes.
+VOTES_2024_CSV = BASE_DIR / 'data' / 'presElection2024.csv'
+VOTES_2024_CT_STATE_CSV = BASE_DIR / 'data' / '2024_US_County_Level_Presidential_Results.csv'
+VOTES_2020_CSV = BASE_DIR / 'data' / '2020_US_County_Level_Presidential_Results.csv'
 
 def get_state_bounds(states_gdf):
     """Calculate the bounds to center the map on all selected states"""
@@ -31,6 +45,103 @@ def load_json_file(path):
         return {}
     with path.open('r', encoding='utf-8') as f:
         return json.load(f)
+
+
+def load_votes_from_csvs():
+    """Load 2020/2024 vote data from CSV files for all states/counties."""
+    state_votes_by_year = {'2020': {}, '2024': {}}
+    county_votes_by_state_year = {'2020': {}, '2024': {}}
+
+    # 2024 county-level source
+    with VOTES_2024_CSV.open('r', encoding='utf-8-sig', newline='') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            geoid = str(row.get('county_fips') or row.get('FIPS') or '').zfill(5)
+            if not geoid or geoid == '00000':
+                continue
+            state_fips = geoid[:2]
+            if state_fips in EXCLUDED_STATE_FIPS:
+                continue
+            state_abbrev = FIPS_TO_STATE.get(state_fips)
+            if not state_abbrev:
+                continue
+
+            dem = int(float(row.get('votes_dem') or row.get('Votes_Harris') or 0))
+            rep = int(float(row.get('votes_gop') or row.get('Votes_Trump') or 0))
+            if row.get('total_votes'):
+                total = int(float(row.get('total_votes') or 0))
+                third = max(0, total - dem - rep)
+            else:
+                third = int(float(row.get('Votes_Stein') or 0))
+
+            county_votes_by_state_year['2024'].setdefault(state_abbrev, {})[geoid] = {
+                'democrat': dem,
+                'republican': rep,
+                'third_party': third,
+            }
+
+            st = state_votes_by_year['2024'].setdefault(
+                state_abbrev, {'democrat': 0, 'republican': 0, 'third_party': 0}
+            )
+            st['democrat'] += dem
+            st['republican'] += rep
+            st['third_party'] += third
+
+    # 2020 county-level source
+    with VOTES_2020_CSV.open('r', encoding='utf-8-sig', newline='') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            geoid = str(row.get('county_fips', '')).zfill(5)
+            if not geoid or geoid == '00000':
+                continue
+            state_fips = geoid[:2]
+            if state_fips in EXCLUDED_STATE_FIPS:
+                continue
+            state_abbrev = FIPS_TO_STATE.get(state_fips)
+            if not state_abbrev:
+                continue
+
+            dem = int(float(row.get('votes_dem', 0) or 0))
+            rep = int(float(row.get('votes_gop', 0) or 0))
+            total = int(float(row.get('total_votes', 0) or 0))
+            third = max(0, total - dem - rep)
+
+            county_votes_by_state_year['2020'].setdefault(state_abbrev, {})[geoid] = {
+                'democrat': dem,
+                'republican': rep,
+                'third_party': third,
+            }
+
+            st = state_votes_by_year['2020'].setdefault(
+                state_abbrev, {'democrat': 0, 'republican': 0, 'third_party': 0}
+            )
+            st['democrat'] += dem
+            st['republican'] += rep
+            st['third_party'] += third
+
+    # Backfill Connecticut 2024 state totals from the new 2024 county-level file
+    # (which uses planning regions) so CT state tooltip has data even when county
+    # view uses legacy county mapping.
+    ct_2024 = {'democrat': 0, 'republican': 0, 'third_party': 0}
+    if VOTES_2024_CT_STATE_CSV.exists():
+        with VOTES_2024_CT_STATE_CSV.open('r', encoding='utf-8-sig', newline='') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                geoid = str(row.get('county_fips') or '').zfill(5)
+                if not geoid.startswith('09'):
+                    continue
+                dem = int(float(row.get('votes_dem') or 0))
+                rep = int(float(row.get('votes_gop') or 0))
+                total = int(float(row.get('total_votes') or 0))
+                third = max(0, total - dem - rep)
+                ct_2024['democrat'] += dem
+                ct_2024['republican'] += rep
+                ct_2024['third_party'] += third
+
+    if (ct_2024['democrat'] + ct_2024['republican'] + ct_2024['third_party']) > 0:
+        state_votes_by_year['2024']['CT'] = ct_2024
+
+    return state_votes_by_year, county_votes_by_state_year
 
 
 def vote_color(democrat_votes, republican_votes):
@@ -53,6 +164,39 @@ def vote_color(democrat_votes, republican_votes):
     blue = int(low + (high - low) * ratio_dem)
     green = 20
     return f'#{red:02x}{green:02x}{blue:02x}'
+
+
+def vote_color_light(democrat_votes, republican_votes):
+    """Light-mode red-white-blue gradient with white midpoint."""
+    dem = max(0, int(democrat_votes or 0))
+    rep = max(0, int(republican_votes or 0))
+    total = dem + rep
+    ratio_dem = 0.5 if total == 0 else dem / total
+
+    # Build a bright diverging scale: pure red -> white -> pure blue.
+    if ratio_dem <= 0.5:
+        t = ratio_dem / 0.5
+        r = 255
+        g = int(255 * t)
+        b = int(255 * t)
+    else:
+        t = (ratio_dem - 0.5) / 0.5
+        r = 255 - int(255 * t)
+        g = 255 - int(255 * t)
+        b = 255
+
+    return f'#{max(0,min(255,r)):02x}{max(0,min(255,g)):02x}{max(0,min(255,b)):02x}'
+
+
+def winner_color_light(democrat_votes, republican_votes):
+    """Return pure blue for Democrat winner, pure red for Republican winner, white for tie."""
+    dem = max(0, int(democrat_votes or 0))
+    rep = max(0, int(republican_votes or 0))
+    if dem > rep:
+        return '#0000ff'
+    if rep > dem:
+        return '#ff0000'
+    return '#ffffff'
 
 
 def winner_color(democrat_votes, republican_votes):
@@ -96,12 +240,100 @@ def voting_map_color(democrat_votes, republican_votes):
     return '#ff2020'
 
 
+def voting_map_color_light(democrat_votes, republican_votes):
+    """Light-mode winner+margin palette with white near toss-up and black borders via theme."""
+    dem = max(0, int(democrat_votes or 0))
+    rep = max(0, int(republican_votes or 0))
+    total = dem + rep
+    if total == 0:
+        return '#ffffff'
+
+    margin = abs(dem - rep) / total
+    dem_wins = dem >= rep
+
+    if margin < 0.03:
+        return '#ffffff'
+
+    if dem_wins:
+        if margin < 0.10:
+            return '#d6d6ff'
+        if margin < 0.20:
+            return '#8080ff'
+        return '#0000ff'
+
+    if margin < 0.10:
+        return '#ffd6d6'
+    if margin < 0.20:
+        return '#ff8080'
+    return '#ff0000'
+
+
+def change_color_dark(delta_dem_share):
+    """Dark-mode voting-map style color for 2024 vs 2020 Democratic vote-share change."""
+    shift = float(delta_dem_share or 0.0)
+    mag = abs(shift)
+
+    if mag < 0.005:
+        return '#9a9a9a'
+
+    moved_dem = shift > 0
+    if moved_dem:
+        if mag < 0.015:
+            return '#a8c1ff'
+        if mag < 0.03:
+            return '#6f95ff'
+        if mag < 0.06:
+            return '#3f73ff'
+        return '#1f4fff'
+
+    if mag < 0.015:
+        return '#ffb3b3'
+    if mag < 0.03:
+        return '#ff8080'
+    if mag < 0.06:
+        return '#ff4d4d'
+    return '#ff2020'
+
+
+def change_color_light(delta_dem_share):
+    """Light-mode voting-map style color for 2024 vs 2020 Democratic vote-share change."""
+    shift = float(delta_dem_share or 0.0)
+    mag = abs(shift)
+
+    if mag < 0.005:
+        return '#ffffff'
+
+    moved_dem = shift > 0
+    if moved_dem:
+        if mag < 0.015:
+            return '#cfcfff'
+        if mag < 0.03:
+            return '#7f7fff'
+        if mag < 0.06:
+            return '#2f2fff'
+        return '#0000ff'
+
+    if mag < 0.015:
+        return '#ffcfcf'
+    if mag < 0.03:
+        return '#ff7f7f'
+    if mag < 0.06:
+        return '#ff2f2f'
+    return '#ff0000'
+
+
 def format_vote_with_pct(votes, total_votes):
     """Format vote count with percent of total region votes."""
     v = max(0, int(votes or 0))
     t = max(0, int(total_votes or 0))
     pct = 0.0 if t == 0 else (v / t) * 100.0
     return f"{v:,} ({pct:.1f}%)"
+
+
+def format_share_change_pp(share_2024, share_2020):
+    """Format candidate vote-share change from 2020 to 2024 in percentage points."""
+    delta_pp = (float(share_2024 or 0.0) - float(share_2020 or 0.0)) * 100.0
+    return f"{delta_pp:+.1f}%"
 
 def create_state_level_map():
     """Create the initial state-level map view"""
@@ -121,29 +353,24 @@ def create_state_level_map():
     
     # Map state abbreviations to FIPS codes and filter counties
     counties['state_fips'] = counties['STATEFP'].astype(str).str.zfill(2)
-    
-    fips_codes = list(STATE_FIPS.values())
-    counties_filtered = counties[counties['state_fips'].isin(fips_codes)].copy()
-    
-    # Also load state boundaries at correct FIPS level for the 5 states
-    states_filtered = counties_filtered.dissolve(by='state_fips', aggfunc='first').copy()
-    states_filtered['state'] = states_filtered.index.map({v: k for k, v in STATE_FIPS.items()})
 
-    # Load election data for both years.
-    state_votes_by_year = {
-        '2020': load_json_file(STATE_VOTES_FILE_2020),
-        '2024': load_json_file(STATE_VOTES_FILE_2024)
-    }
-    county_votes_by_state_year = {
-        year: {
-            state: load_json_file(COUNTY_VOTES_DIR / f'{state}_votes_{year}.json')
-            for state in TARGET_STATES
-        }
-        for year in ['2020', '2024']
-    }
+    country_fips_codes = set(ALL_STATE_FIPS.values()) - EXCLUDED_STATE_FIPS
+    group_fips_codes = set(TARGET_STATE_FIPS.values())
+
+    counties_country = counties[counties['state_fips'].isin(country_fips_codes)].copy()
+    counties_group = counties_country[counties_country['state_fips'].isin(group_fips_codes)].copy()
+
+    # Build state boundaries from county geometry.
+    states_country = counties_country.dissolve(by='state_fips', aggfunc='first').copy()
+    states_country['state'] = states_country.index.map(FIPS_TO_STATE)
+
+    # Load election data for both years from CSVs.
+    state_votes_by_year, county_votes_by_state_year = load_votes_from_csvs()
     
     # Calculate center and initial bounds
-    bounds = get_state_bounds(states_filtered)
+    bounds = get_state_bounds(states_country[states_country['state'].isin(TARGET_STATES)])
+    group_bounds = get_state_bounds(states_country[states_country['state'].isin(TARGET_STATES)])
+    country_bounds = get_state_bounds(states_country)
     center_lat = (bounds[1] + bounds[3]) / 2
     center_lon = (bounds[0] + bounds[2]) / 2
     
@@ -174,6 +401,8 @@ def create_state_level_map():
         .leaflet-popup-content,
         .leaflet-popup-content-wrapper,
         #viewToggle,
+        #dataModeToggle,
+        #scopeToggle,
         #yearToggle,
         #colorModeSelect {
             font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
@@ -182,14 +411,15 @@ def create_state_level_map():
     ))
     
     # Create a GeoJson layer for states
-    states_geojson = json.loads(states_filtered.to_json())
+    states_geojson = json.loads(states_country.to_json())
     
     # Add state metadata for labels/tooltips
-    state_fips_list = list(states_filtered.index)
+    state_fips_list = list(states_country.index)
     for i, feature in enumerate(states_geojson['features']):
         feature['properties']['state_fips'] = state_fips_list[i]
-        state_abbrev = states_filtered.loc[state_fips_list[i], 'state']
+        state_abbrev = states_country.loc[state_fips_list[i], 'state']
         feature['properties']['state'] = state_abbrev
+        feature['properties']['in_group'] = state_abbrev in TARGET_STATES
 
         for year in ['2020', '2024']:
             vote_data = state_votes_by_year.get(year, {}).get(
@@ -207,17 +437,43 @@ def create_state_level_map():
             feature['properties'][f'democrat_display_{year}'] = format_vote_with_pct(dem_votes, total_votes)
             feature['properties'][f'republican_display_{year}'] = format_vote_with_pct(rep_votes, total_votes)
             feature['properties'][f'third_party_display_{year}'] = format_vote_with_pct(third_votes, total_votes)
-            feature['properties'][f'gradient_color_{year}'] = vote_color(dem_votes, rep_votes)
-            feature['properties'][f'winner_color_{year}'] = winner_color(dem_votes, rep_votes)
-            feature['properties'][f'voting_color_{year}'] = voting_map_color(dem_votes, rep_votes)
+            feature['properties'][f'gradient_color_dark_{year}'] = vote_color(dem_votes, rep_votes)
+            feature['properties'][f'gradient_color_light_{year}'] = vote_color_light(dem_votes, rep_votes)
+            feature['properties'][f'winner_color_dark_{year}'] = winner_color(dem_votes, rep_votes)
+            feature['properties'][f'winner_color_light_{year}'] = winner_color_light(dem_votes, rep_votes)
+            feature['properties'][f'voting_color_dark_{year}'] = voting_map_color(dem_votes, rep_votes)
+            feature['properties'][f'voting_color_light_{year}'] = voting_map_color_light(dem_votes, rep_votes)
+
+        dem_2020 = int(feature['properties'].get('democrat_votes_2020', 0) or 0)
+        rep_2020 = int(feature['properties'].get('republican_votes_2020', 0) or 0)
+        third_2020 = int(feature['properties'].get('third_party_votes_2020', 0) or 0)
+        total_2020 = dem_2020 + rep_2020 + third_2020
+        dem_share_2020 = 0.5 if total_2020 == 0 else (dem_2020 / total_2020)
+        rep_share_2020 = 0.5 if total_2020 == 0 else (rep_2020 / total_2020)
+        third_share_2020 = 0.0 if total_2020 == 0 else (third_2020 / total_2020)
+
+        dem_2024 = int(feature['properties'].get('democrat_votes_2024', 0) or 0)
+        rep_2024 = int(feature['properties'].get('republican_votes_2024', 0) or 0)
+        third_2024 = int(feature['properties'].get('third_party_votes_2024', 0) or 0)
+        total_2024 = dem_2024 + rep_2024 + third_2024
+        dem_share_2024 = 0.5 if total_2024 == 0 else (dem_2024 / total_2024)
+        rep_share_2024 = 0.5 if total_2024 == 0 else (rep_2024 / total_2024)
+        third_share_2024 = 0.0 if total_2024 == 0 else (third_2024 / total_2024)
+
+        delta_share = dem_share_2024 - dem_share_2020
+        feature['properties']['change_color_dark'] = change_color_dark(delta_share)
+        feature['properties']['change_color_light'] = change_color_light(delta_share)
+        feature['properties']['democrat_change_display'] = format_share_change_pp(dem_share_2024, dem_share_2020)
+        feature['properties']['republican_change_display'] = format_share_change_pp(rep_share_2024, rep_share_2020)
+        feature['properties']['third_party_change_display'] = format_share_change_pp(third_share_2024, third_share_2020)
 
         # Default active year at load is 2024.
         feature['properties']['democrat_display'] = feature['properties']['democrat_display_2024']
         feature['properties']['republican_display'] = feature['properties']['republican_display_2024']
         feature['properties']['third_party_display'] = feature['properties']['third_party_display_2024']
-        feature['properties']['gradient_color'] = feature['properties']['gradient_color_2024']
-        feature['properties']['winner_color'] = feature['properties']['winner_color_2024']
-        feature['properties']['voting_color'] = feature['properties']['voting_color_2024']
+        feature['properties']['gradient_color'] = feature['properties']['gradient_color_dark_2024']
+        feature['properties']['winner_color'] = feature['properties']['winner_color_dark_2024']
+        feature['properties']['voting_color'] = feature['properties']['voting_color_dark_2024']
     
     # State boundaries layer (default visible)
     state_layer = folium.GeoJson(
@@ -245,14 +501,16 @@ def create_state_level_map():
     state_layer.add_to(m)
 
     # County layer (toggle on/off from slider)
-    counties_geojson = json.loads(counties_filtered.to_json())
+    counties_geojson = json.loads(counties_country.to_json())
     for feature in counties_geojson['features']:
         props = feature['properties']
         feature['properties']['county_name'] = props.get('NAME', 'Unknown')
 
         state_fips = str(props.get('STATEFP', '')).zfill(2)
-        state_abbrev = next((k for k, v in STATE_FIPS.items() if v == state_fips), None)
-        geoid = str(props.get('GEOID', ''))
+        state_abbrev = FIPS_TO_STATE.get(state_fips)
+        geoid = str(props.get('GEOID', '')).zfill(5)
+        feature['properties']['in_group'] = state_abbrev in TARGET_STATES if state_abbrev else False
+        feature['properties']['hide_in_county_view'] = (state_abbrev == 'CT')
 
         for year in ['2020', '2024']:
             vote_data = {}
@@ -273,17 +531,43 @@ def create_state_level_map():
             feature['properties'][f'democrat_display_{year}'] = format_vote_with_pct(dem_votes, total_votes)
             feature['properties'][f'republican_display_{year}'] = format_vote_with_pct(rep_votes, total_votes)
             feature['properties'][f'third_party_display_{year}'] = format_vote_with_pct(third_votes, total_votes)
-            feature['properties'][f'gradient_color_{year}'] = vote_color(dem_votes, rep_votes)
-            feature['properties'][f'winner_color_{year}'] = winner_color(dem_votes, rep_votes)
-            feature['properties'][f'voting_color_{year}'] = voting_map_color(dem_votes, rep_votes)
+            feature['properties'][f'gradient_color_dark_{year}'] = vote_color(dem_votes, rep_votes)
+            feature['properties'][f'gradient_color_light_{year}'] = vote_color_light(dem_votes, rep_votes)
+            feature['properties'][f'winner_color_dark_{year}'] = winner_color(dem_votes, rep_votes)
+            feature['properties'][f'winner_color_light_{year}'] = winner_color_light(dem_votes, rep_votes)
+            feature['properties'][f'voting_color_dark_{year}'] = voting_map_color(dem_votes, rep_votes)
+            feature['properties'][f'voting_color_light_{year}'] = voting_map_color_light(dem_votes, rep_votes)
+
+        dem_2020 = int(feature['properties'].get('democrat_votes_2020', 0) or 0)
+        rep_2020 = int(feature['properties'].get('republican_votes_2020', 0) or 0)
+        third_2020 = int(feature['properties'].get('third_party_votes_2020', 0) or 0)
+        total_2020 = dem_2020 + rep_2020 + third_2020
+        dem_share_2020 = 0.5 if total_2020 == 0 else (dem_2020 / total_2020)
+        rep_share_2020 = 0.5 if total_2020 == 0 else (rep_2020 / total_2020)
+        third_share_2020 = 0.0 if total_2020 == 0 else (third_2020 / total_2020)
+
+        dem_2024 = int(feature['properties'].get('democrat_votes_2024', 0) or 0)
+        rep_2024 = int(feature['properties'].get('republican_votes_2024', 0) or 0)
+        third_2024 = int(feature['properties'].get('third_party_votes_2024', 0) or 0)
+        total_2024 = dem_2024 + rep_2024 + third_2024
+        dem_share_2024 = 0.5 if total_2024 == 0 else (dem_2024 / total_2024)
+        rep_share_2024 = 0.5 if total_2024 == 0 else (rep_2024 / total_2024)
+        third_share_2024 = 0.0 if total_2024 == 0 else (third_2024 / total_2024)
+
+        delta_share = dem_share_2024 - dem_share_2020
+        feature['properties']['change_color_dark'] = change_color_dark(delta_share)
+        feature['properties']['change_color_light'] = change_color_light(delta_share)
+        feature['properties']['democrat_change_display'] = format_share_change_pp(dem_share_2024, dem_share_2020)
+        feature['properties']['republican_change_display'] = format_share_change_pp(rep_share_2024, rep_share_2020)
+        feature['properties']['third_party_change_display'] = format_share_change_pp(third_share_2024, third_share_2020)
 
         # Default active year at load is 2024.
         feature['properties']['democrat_display'] = feature['properties']['democrat_display_2024']
         feature['properties']['republican_display'] = feature['properties']['republican_display_2024']
         feature['properties']['third_party_display'] = feature['properties']['third_party_display_2024']
-        feature['properties']['gradient_color'] = feature['properties']['gradient_color_2024']
-        feature['properties']['winner_color'] = feature['properties']['winner_color_2024']
-        feature['properties']['voting_color'] = feature['properties']['voting_color_2024']
+        feature['properties']['gradient_color'] = feature['properties']['gradient_color_dark_2024']
+        feature['properties']['winner_color'] = feature['properties']['winner_color_dark_2024']
+        feature['properties']['voting_color'] = feature['properties']['voting_color_dark_2024']
 
     county_layer = folium.GeoJson(
         counties_geojson,
@@ -336,8 +620,34 @@ def create_state_level_map():
     '''
     m.get_root().html.add_child(folium.Element(color_mode_control_html))
 
+    data_mode_toggle_html = '''
+    <div id="dataModeToggle" style="position: fixed; top: 320px; right: 10px; z-index: 9999; width: 178px; background: #242424; border: 2px solid #9D4EDD; border-radius: 999px; padding: 4px; box-sizing: border-box; user-select: none;">
+        <div style="position: relative; height: 30px; overflow: hidden; border-radius: 999px;">
+            <div style="position: absolute; left: 0; top: 0; width: 84px; height: 30px; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 1; color: #CFAEF4; font-weight: 700; font-size: 12px;">Year</div>
+            <div style="position: absolute; right: 0; top: 0; width: 84px; height: 30px; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 1; color: #CFAEF4; font-weight: 700; font-size: 12px;">Change</div>
+            <div id="dataModePill" style="position: absolute; left: 2px; top: 1px; width: 84px; height: 28px; border-radius: 999px; background: #D6C2F8; display: flex; align-items: center; justify-content: center; z-index: 3; color: #1F1530; font-weight: 700; font-size: 12px; transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);">Year</div>
+            <button id="yearModeBtn" type="button" style="position: absolute; left: 0; top: 0; width: 84px; height: 30px; border: none; background: transparent; color: transparent; z-index: 4; cursor: pointer;">Year</button>
+            <button id="changeModeBtn" type="button" style="position: absolute; right: 0; top: 0; width: 84px; height: 30px; border: none; background: transparent; color: transparent; z-index: 4; cursor: pointer;">Change</button>
+        </div>
+    </div>
+    '''
+    m.get_root().html.add_child(folium.Element(data_mode_toggle_html))
+
+    scope_toggle_html = '''
+    <div id="scopeToggle" style="position: fixed; top: 396px; right: 10px; z-index: 9999; width: 178px; background: #242424; border: 2px solid #9D4EDD; border-radius: 999px; padding: 4px; box-sizing: border-box; user-select: none;">
+        <div style="position: relative; height: 30px; overflow: hidden; border-radius: 999px;">
+            <div style="position: absolute; left: 0; top: 0; width: 84px; height: 30px; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 1; color: #CFAEF4; font-weight: 700; font-size: 12px;">Group</div>
+            <div style="position: absolute; right: 0; top: 0; width: 84px; height: 30px; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 1; color: #CFAEF4; font-weight: 700; font-size: 12px;">Country</div>
+            <div id="scopePill" style="position: absolute; left: 2px; top: 1px; width: 84px; height: 28px; border-radius: 999px; background: #D6C2F8; display: flex; align-items: center; justify-content: center; z-index: 3; color: #1F1530; font-weight: 700; font-size: 12px; transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);">Group</div>
+            <button id="groupBtn" type="button" style="position: absolute; left: 0; top: 0; width: 84px; height: 30px; border: none; background: transparent; color: transparent; z-index: 4; cursor: pointer;">Group</button>
+            <button id="countryBtn" type="button" style="position: absolute; right: 0; top: 0; width: 84px; height: 30px; border: none; background: transparent; color: transparent; z-index: 4; cursor: pointer;">Country</button>
+        </div>
+    </div>
+    '''
+    m.get_root().html.add_child(folium.Element(scope_toggle_html))
+
     year_toggle_html = '''
-    <div id="yearToggle" style="position: fixed; top: 138px; right: 10px; z-index: 9999; width: 178px; background: #242424; border: 2px solid #9D4EDD; border-radius: 999px; padding: 4px; box-sizing: border-box; user-select: none;">
+    <div id="yearToggle" style="position: fixed; top: 176px; right: 10px; z-index: 9999; width: 178px; background: #242424; border: 2px solid #9D4EDD; border-radius: 999px; padding: 4px; box-sizing: border-box; user-select: none;">
         <div style="position: relative; height: 30px; overflow: hidden; border-radius: 999px;">
             <div style="position: absolute; left: 0; top: 0; width: 84px; height: 30px; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 1; color: #CFAEF4; font-weight: 700; font-size: 12px;">2020</div>
             <div style="position: absolute; right: 0; top: 0; width: 84px; height: 30px; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 1; color: #CFAEF4; font-weight: 700; font-size: 12px;">2024</div>
@@ -349,12 +659,27 @@ def create_state_level_map():
     '''
     m.get_root().html.add_child(folium.Element(year_toggle_html))
 
+    theme_toggle_html = '''
+    <div id="themeToggle" style="position: fixed; top: 252px; right: 10px; z-index: 9999; width: 178px; background: #242424; border: 2px solid #9D4EDD; border-radius: 999px; padding: 4px; box-sizing: border-box; user-select: none;">
+        <div style="position: relative; height: 30px; overflow: hidden; border-radius: 999px;">
+            <div style="position: absolute; left: 0; top: 0; width: 84px; height: 30px; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 1; color: #CFAEF4; font-weight: 700; font-size: 12px;">Light</div>
+            <div style="position: absolute; right: 0; top: 0; width: 84px; height: 30px; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 1; color: #CFAEF4; font-weight: 700; font-size: 12px;">Dark</div>
+            <div id="themeTogglePill" style="position: absolute; left: 2px; top: 1px; width: 84px; height: 28px; border-radius: 999px; background: #D6C2F8; display: flex; align-items: center; justify-content: center; z-index: 3; color: #1F1530; font-weight: 700; font-size: 12px; transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);">Dark</div>
+            <button id="themeLightBtn" type="button" style="position: absolute; left: 0; top: 0; width: 84px; height: 30px; border: none; background: transparent; color: transparent; z-index: 4; cursor: pointer;">Light</button>
+            <button id="themeDarkBtn" type="button" style="position: absolute; right: 0; top: 0; width: 84px; height: 30px; border: none; background: transparent; color: transparent; z-index: 4; cursor: pointer;">Dark</button>
+        </div>
+    </div>
+    '''
+    m.get_root().html.add_child(folium.Element(theme_toggle_html))
+
     slider_script = f'''
     <script>
     (function() {{
         var mapVar = "{m.get_name()}";
         var stateVar = "{state_layer.get_name()}";
         var countyVar = "{county_layer.get_name()}";
+        var groupBounds = [[{group_bounds[1]}, {group_bounds[0]}], [{group_bounds[3]}, {group_bounds[2]}]];
+        var countryBounds = [[{country_bounds[1]}, {country_bounds[0]}], [{country_bounds[3]}, {country_bounds[2]}]];
 
         function initSlider() {{
             var mapObj = window[mapVar];
@@ -364,41 +689,112 @@ def create_state_level_map():
             var stateBtn = document.getElementById('stateBtn');
             var countyBtn = document.getElementById('countyBtn');
             var colorModeSelect = document.getElementById('colorModeSelect');
+            var dataModePill = document.getElementById('dataModePill');
+            var yearModeBtn = document.getElementById('yearModeBtn');
+            var changeModeBtn = document.getElementById('changeModeBtn');
+            var scopePill = document.getElementById('scopePill');
+            var groupBtn = document.getElementById('groupBtn');
+            var countryBtn = document.getElementById('countryBtn');
+            var yearToggle = document.getElementById('yearToggle');
             var yearPill = document.getElementById('yearTogglePill');
             var year2020Btn = document.getElementById('year2020Btn');
             var year2024Btn = document.getElementById('year2024Btn');
+            var themePill = document.getElementById('themeTogglePill');
+            var themeLightBtn = document.getElementById('themeLightBtn');
+            var themeDarkBtn = document.getElementById('themeDarkBtn');
 
-            if (!mapObj || !stateLayer || !countyLayer || !pill || !stateBtn || !countyBtn || !colorModeSelect || !yearPill || !year2020Btn || !year2024Btn) {{
+            if (!mapObj || !stateLayer || !countyLayer || !pill || !stateBtn || !countyBtn || !colorModeSelect || !dataModePill || !yearModeBtn || !changeModeBtn || !scopePill || !groupBtn || !countryBtn || !yearToggle || !yearPill || !year2020Btn || !year2024Btn || !themePill || !themeLightBtn || !themeDarkBtn) {{
                 return false;
             }}
 
             var activeColorMode = 'winner';
+            var activeDataMode = 'year';
+            var activeScope = 'group';
             var activeViewMode = 'state';
             var activeYear = '2024';
+            var activeTheme = 'dark';
+
+            function isInScope(props) {{
+                if (activeScope === 'country') return true;
+                return !!(props && props.in_group);
+            }}
 
             function syncFeaturePropertiesToYear(layer) {{
                 if (!layer || !layer.feature || !layer.feature.properties) return;
                 var props = layer.feature.properties;
                 var suffix = '_' + activeYear;
 
-                props.democrat_display = props['democrat_display' + suffix] || '0 (0.0%)';
-                props.republican_display = props['republican_display' + suffix] || '0 (0.0%)';
-                props.third_party_display = props['third_party_display' + suffix] || '0 (0.0%)';
+                if (activeDataMode === 'change') {{
+                    props.democrat_display = props.democrat_change_display || '+0.0%';
+                    props.republican_display = props.republican_change_display || '+0.0%';
+                    props.third_party_display = props.third_party_change_display || '+0.0%';
+                }} else {{
+                    props.democrat_display = props['democrat_display' + suffix] || '0 (0.0%)';
+                    props.republican_display = props['republican_display' + suffix] || '0 (0.0%)';
+                    props.third_party_display = props['third_party_display' + suffix] || '0 (0.0%)';
+                }}
 
-                props.winner_color = props['winner_color' + suffix] || props.winner_color || '#7f5fbf';
-                props.gradient_color = props['gradient_color' + suffix] || props.gradient_color || '#7f5fbf';
-                props.voting_color = props['voting_color' + suffix] || props.voting_color || '#7f5fbf';
+                props.winner_color = props['winner_color_' + activeTheme + suffix] || props.winner_color || '#7f5fbf';
+                props.gradient_color = props['gradient_color_' + activeTheme + suffix] || props.gradient_color || '#7f5fbf';
+                props.voting_color = props['voting_color_' + activeTheme + suffix] || props.voting_color || '#7f5fbf';
+                props.change_color = props['change_color_' + activeTheme] || props.change_color || '#9a9a9a';
+            }}
+
+            function applyTheme(theme) {{
+                activeTheme = theme;
+                var container = mapObj.getContainer();
+                var mapPane = mapObj.getPane && mapObj.getPane('mapPane');
+
+                if (theme === 'light') {{
+                    themePill.style.transform = 'translateX(0px)';
+                    themePill.textContent = 'Light';
+                    container.style.setProperty('background-color', '#e8dbc6', 'important');
+                    if (mapPane) {{
+                        mapPane.style.setProperty('background-color', '#e8dbc6', 'important');
+                    }}
+                    document.body.style.backgroundColor = '#e8dbc6';
+                }} else {{
+                    themePill.style.transform = 'translateX(88px)';
+                    themePill.textContent = 'Dark';
+                    container.style.setProperty('background-color', '#1a1a1a', 'important');
+                    if (mapPane) {{
+                        mapPane.style.setProperty('background-color', '#1a1a1a', 'important');
+                    }}
+                    document.body.style.backgroundColor = '#1a1a1a';
+                }}
+
+                applyColorMode(activeColorMode);
             }}
 
             function styleFeatureLayer(layer, isCountyLayer, isHover) {{
                 if (!layer || !layer.feature || !layer.feature.properties) return;
                 var props = layer.feature.properties;
-                var key = activeColorMode + '_color';
+
+                if (isCountyLayer && props.hide_in_county_view) {{
+                    if (layer._path) {{
+                        layer._path.style.display = 'none';
+                    }}
+                    return;
+                }}
+
+                if (!isInScope(props)) {{
+                    if (layer._path) {{
+                        layer._path.style.display = 'none';
+                    }}
+                    return;
+                }}
+                if (layer._path) {{
+                    layer._path.style.display = '';
+                }}
+
+                var key = (activeDataMode === 'change') ? 'change_color' : (activeColorMode + '_color');
                 var color = props[key] || props.gradient_color || '#7f5fbf';
+                var strokeColor = (activeTheme === 'light') ? '#000000' : color;
 
                 // In county mode, keep state outlines thick but neutral (no election color).
                 if (!isCountyLayer && activeViewMode === 'county') {{
-                    color = '#9a9a9a';
+                    color = (activeTheme === 'light') ? '#ffffff' : '#9a9a9a';
+                    strokeColor = (activeTheme === 'light') ? '#000000' : color;
                 }}
 
                 var baseWeight = isCountyLayer ? 1.1 : 2.5;
@@ -408,7 +804,7 @@ def create_state_level_map():
 
                 layer.setStyle({{
                     fillColor: color,
-                    color: color,
+                    color: strokeColor,
                     weight: isHover ? hoverWeight : baseWeight,
                     fillOpacity: isHover ? hoverFill : baseFill
                 }});
@@ -455,17 +851,44 @@ def create_state_level_map():
                     yearPill.style.transform = 'translateX(88px)';
                     yearPill.textContent = '2024';
                 }}
+                if (activeDataMode === 'change') {{
+                    return;
+                }}
+                applyColorMode(activeColorMode);
+            }}
+
+            function setDataMode(mode) {{
+                activeDataMode = mode;
+
+                if (mode === 'change') {{
+                    dataModePill.style.transform = 'translateX(88px)';
+                    dataModePill.textContent = 'Change';
+                    yearToggle.style.opacity = '0.55';
+                    yearToggle.style.pointerEvents = 'none';
+                    colorModeSelect.style.opacity = '0.55';
+                    colorModeSelect.style.pointerEvents = 'none';
+                }} else {{
+                    dataModePill.style.transform = 'translateX(0px)';
+                    dataModePill.textContent = 'Year';
+                    yearToggle.style.opacity = '1';
+                    yearToggle.style.pointerEvents = 'auto';
+                    colorModeSelect.style.opacity = '1';
+                    colorModeSelect.style.pointerEvents = 'auto';
+                }}
+
                 applyColorMode(activeColorMode);
             }}
 
             function setStatePointerEvents(enabled) {{
                 if (!stateLayer.eachLayer) return;
                 stateLayer.eachLayer(function(layer) {{
+                    var inScope = !!(layer && layer.feature && layer.feature.properties && isInScope(layer.feature.properties));
+                    var shouldEnable = enabled && inScope;
                     if (layer.options) {{
-                        layer.options.interactive = enabled;
+                        layer.options.interactive = shouldEnable;
                     }}
                     if (layer._path) {{
-                        layer._path.style.pointerEvents = enabled ? 'auto' : 'none';
+                        layer._path.style.pointerEvents = shouldEnable ? 'auto' : 'none';
                     }}
                 }});
             }}
@@ -473,18 +896,24 @@ def create_state_level_map():
             function setStateFillForMode(isCountyMode) {{
                 if (!stateLayer.eachLayer) return;
                 stateLayer.eachLayer(function(layer) {{
-                    if (!layer || !layer.feature || !layer.feature.properties) return;
-                    var props = layer.feature.properties;
-                    var key = activeColorMode + '_color';
-                    var color = isCountyMode ? '#9a9a9a' : (props[key] || props.gradient_color || '#7f5fbf');
-                    layer.setStyle({{
-                        fillColor: color,
-                        color: color,
-                        weight: 2.5,
-                        fillOpacity: isCountyMode ? 0.0 : 0.2,
-                        opacity: 1.0
-                    }});
+                    styleFeatureLayer(layer, false, false);
                 }});
+            }}
+
+            function setScope(mode) {{
+                activeScope = mode;
+                if (mode === 'country') {{
+                    scopePill.style.transform = 'translateX(88px)';
+                    scopePill.textContent = 'Country';
+                    mapObj.fitBounds(countryBounds, {{padding: [16, 16]}});
+                }} else {{
+                    scopePill.style.transform = 'translateX(0px)';
+                    scopePill.textContent = 'Group';
+                    mapObj.fitBounds(groupBounds, {{padding: [16, 16]}});
+                }}
+
+                setStatePointerEvents(activeViewMode === 'state');
+                applyColorMode(activeColorMode);
             }}
 
             function setMode(mode) {{
@@ -509,6 +938,9 @@ def create_state_level_map():
                     pill.style.transform = 'translateX(0px)';
                     pill.textContent = 'State';
                 }}
+
+                // Ensure scope-based visibility (group vs country) is reapplied on mode switch.
+                applyColorMode(activeColorMode);
             }}
 
             stateBtn.addEventListener('click', function() {{ setMode('state'); }});
@@ -516,19 +948,40 @@ def create_state_level_map():
             colorModeSelect.addEventListener('change', function(e) {{
                 applyColorMode(e.target.value);
             }});
+            yearModeBtn.addEventListener('click', function() {{
+                setDataMode('year');
+            }});
+            changeModeBtn.addEventListener('click', function() {{
+                setDataMode('change');
+            }});
+            groupBtn.addEventListener('click', function() {{
+                setScope('group');
+            }});
+            countryBtn.addEventListener('click', function() {{
+                setScope('country');
+            }});
             year2020Btn.addEventListener('click', function() {{
                 applyYear('2020');
             }});
             year2024Btn.addEventListener('click', function() {{
                 applyYear('2024');
             }});
+            themeLightBtn.addEventListener('click', function() {{
+                applyTheme('light');
+            }});
+            themeDarkBtn.addEventListener('click', function() {{
+                applyTheme('dark');
+            }});
 
             bindHoverHandlers(stateLayer, false);
             bindHoverHandlers(countyLayer, true);
 
+            applyTheme('dark');
             applyYear('2024');
-            applyColorMode(colorModeSelect.value);
+            setDataMode('year');
             setMode('state');
+            setScope('group');
+            applyColorMode(colorModeSelect.value);
             return true;
         }}
 
@@ -560,7 +1013,7 @@ def create_state_level_map():
     '''
     m.get_root().html.add_child(folium.Element(title_html))
     
-    return m, counties_filtered, states_filtered
+    return m, counties_group, states_country[states_country['state'].isin(TARGET_STATES)]
 
 def main():
     """Main function to create both map levels"""
