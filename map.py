@@ -144,45 +144,50 @@ def load_votes_from_csvs():
     return state_votes_by_year, county_votes_by_state_year
 
 
-def vote_color(democrat_votes, republican_votes):
-    """Interpolate between red (R) and blue (D) by D/(D+R)."""
+def vote_color(democrat_votes, republican_votes, third_party_votes=0):
+    """Dark-mode red-white-blue gradient by Democratic vote share."""
     dem = max(0, int(democrat_votes or 0))
     rep = max(0, int(republican_votes or 0))
-    total = dem + rep
+    third = max(0, int(third_party_votes or 0))
+    total = dem + rep + third
 
-    # If no data, use midpoint purple.
-    ratio_dem = 0.5 if total == 0 else dem / total
+    # Exact diverging scale: 0% D -> red, 50% D -> white, 100% D -> blue.
+    dem_share = 0.5 if total == 0 else dem / total
+    dem_share = max(0.0, min(1.0, dem_share))
 
-    # Increase contrast so gradient differences are more visually drastic.
-    contrast = 1.8
-    ratio_dem = max(0.0, min(1.0, 0.5 + (ratio_dem - 0.5) * contrast))
+    if dem_share <= 0.5:
+        t = dem_share / 0.5
+        red = 255
+        green = int(255 * t)
+        blue = int(255 * t)
+    else:
+        t = (dem_share - 0.5) / 0.5
+        red = int(255 * (1 - t))
+        green = int(255 * (1 - t))
+        blue = 255
 
-    # Use a brighter interpolation range so gradient colors pop on dark background.
-    low = 70
-    high = 255
-    red = int(low + (high - low) * (1 - ratio_dem))
-    blue = int(low + (high - low) * ratio_dem)
-    green = 20
     return f'#{red:02x}{green:02x}{blue:02x}'
 
 
-def vote_color_light(democrat_votes, republican_votes):
-    """Light-mode red-white-blue gradient with white midpoint."""
+def vote_color_light(democrat_votes, republican_votes, third_party_votes=0):
+    """Light-mode red-white-blue gradient by Democratic vote share."""
     dem = max(0, int(democrat_votes or 0))
     rep = max(0, int(republican_votes or 0))
-    total = dem + rep
-    ratio_dem = 0.5 if total == 0 else dem / total
+    third = max(0, int(third_party_votes or 0))
+    total = dem + rep + third
+    dem_share = 0.5 if total == 0 else dem / total
+    dem_share = max(0.0, min(1.0, dem_share))
 
-    # Build a bright diverging scale: pure red -> white -> pure blue.
-    if ratio_dem <= 0.5:
-        t = ratio_dem / 0.5
+    # Exact diverging scale: 0% D -> red, 50% D -> white, 100% D -> blue.
+    if dem_share <= 0.5:
+        t = dem_share / 0.5
         r = 255
         g = int(255 * t)
         b = int(255 * t)
     else:
-        t = (ratio_dem - 0.5) / 0.5
-        r = 255 - int(255 * t)
-        g = 255 - int(255 * t)
+        t = (dem_share - 0.5) / 0.5
+        r = int(255 * (1 - t))
+        g = int(255 * (1 - t))
         b = 255
 
     return f'#{max(0,min(255,r)):02x}{max(0,min(255,g)):02x}{max(0,min(255,b)):02x}'
@@ -437,8 +442,8 @@ def create_state_level_map():
             feature['properties'][f'democrat_display_{year}'] = format_vote_with_pct(dem_votes, total_votes)
             feature['properties'][f'republican_display_{year}'] = format_vote_with_pct(rep_votes, total_votes)
             feature['properties'][f'third_party_display_{year}'] = format_vote_with_pct(third_votes, total_votes)
-            feature['properties'][f'gradient_color_dark_{year}'] = vote_color(dem_votes, rep_votes)
-            feature['properties'][f'gradient_color_light_{year}'] = vote_color_light(dem_votes, rep_votes)
+            feature['properties'][f'gradient_color_dark_{year}'] = vote_color(dem_votes, rep_votes, third_votes)
+            feature['properties'][f'gradient_color_light_{year}'] = vote_color_light(dem_votes, rep_votes, third_votes)
             feature['properties'][f'winner_color_dark_{year}'] = winner_color(dem_votes, rep_votes)
             feature['properties'][f'winner_color_light_{year}'] = winner_color_light(dem_votes, rep_votes)
             feature['properties'][f'voting_color_dark_{year}'] = voting_map_color(dem_votes, rep_votes)
@@ -532,8 +537,8 @@ def create_state_level_map():
             feature['properties'][f'democrat_display_{year}'] = format_vote_with_pct(dem_votes, total_votes)
             feature['properties'][f'republican_display_{year}'] = format_vote_with_pct(rep_votes, total_votes)
             feature['properties'][f'third_party_display_{year}'] = format_vote_with_pct(third_votes, total_votes)
-            feature['properties'][f'gradient_color_dark_{year}'] = vote_color(dem_votes, rep_votes)
-            feature['properties'][f'gradient_color_light_{year}'] = vote_color_light(dem_votes, rep_votes)
+            feature['properties'][f'gradient_color_dark_{year}'] = vote_color(dem_votes, rep_votes, third_votes)
+            feature['properties'][f'gradient_color_light_{year}'] = vote_color_light(dem_votes, rep_votes, third_votes)
             feature['properties'][f'winner_color_dark_{year}'] = winner_color(dem_votes, rep_votes)
             feature['properties'][f'winner_color_light_{year}'] = winner_color_light(dem_votes, rep_votes)
             feature['properties'][f'voting_color_dark_{year}'] = voting_map_color(dem_votes, rep_votes)
