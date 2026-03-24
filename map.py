@@ -508,6 +508,7 @@ def create_state_level_map():
 
         state_fips = str(props.get('STATEFP', '')).zfill(2)
         state_abbrev = FIPS_TO_STATE.get(state_fips)
+        feature['properties']['state'] = state_abbrev if state_abbrev else ''
         geoid = str(props.get('GEOID', '')).zfill(5)
         feature['properties']['in_group'] = state_abbrev in TARGET_STATES if state_abbrev else False
         feature['properties']['hide_in_county_view'] = (state_abbrev == 'CT')
@@ -594,6 +595,19 @@ def create_state_level_map():
     )
     county_layer.add_to(m)
 
+    available_states = sorted([s for s in states_country['state'].dropna().unique().tolist()])
+    group_filter_states = sorted(['NY', 'NJ', 'PA', 'ME', 'VA'])
+
+    state_filter_control_html = f'''
+    <div style="position: fixed; top: 100px; left: 50px; z-index: 9999; background: #242424; border: 2px solid #9D4EDD; border-radius: 10px; padding: 8px; width: 178px; box-sizing: border-box;">
+        <label for="stateFilterSelect" style="display:block; color:#E0AAFF; font-size:12px; font-weight:700; margin-bottom:6px;">State Filter</label>
+        <select id="stateFilterSelect" style="width:100%; background:#1a1a1a; color:#E0AAFF; border:1px solid #9D4EDD; border-radius:6px; padding:4px; font-size:12px;">
+            <option value="ALL" selected>All States</option>
+        </select>
+    </div>
+    '''
+    m.get_root().html.add_child(folium.Element(state_filter_control_html))
+
     # Custom top-right slider control for State/County toggle
     slider_control_html = '''
     <div id="viewToggle" style="position: fixed; top: 10px; right: 10px; z-index: 9999; width: 178px; background: #242424; border: 2px solid #9D4EDD; border-radius: 999px; padding: 4px; box-sizing: border-box; user-select: none;">
@@ -678,6 +692,8 @@ def create_state_level_map():
         var mapVar = "{m.get_name()}";
         var stateVar = "{state_layer.get_name()}";
         var countyVar = "{county_layer.get_name()}";
+        var countryStateOptions = {json.dumps(available_states)};
+        var groupStateOptions = {json.dumps(group_filter_states)};
         var groupBounds = [[{group_bounds[1]}, {group_bounds[0]}], [{group_bounds[3]}, {group_bounds[2]}]];
         var countryBounds = [[{country_bounds[1]}, {country_bounds[0]}], [{country_bounds[3]}, {country_bounds[2]}]];
 
@@ -689,6 +705,7 @@ def create_state_level_map():
             var stateBtn = document.getElementById('stateBtn');
             var countyBtn = document.getElementById('countyBtn');
             var colorModeSelect = document.getElementById('colorModeSelect');
+            var stateFilterSelect = document.getElementById('stateFilterSelect');
             var dataModePill = document.getElementById('dataModePill');
             var yearModeBtn = document.getElementById('yearModeBtn');
             var changeModeBtn = document.getElementById('changeModeBtn');
@@ -703,16 +720,36 @@ def create_state_level_map():
             var themeLightBtn = document.getElementById('themeLightBtn');
             var themeDarkBtn = document.getElementById('themeDarkBtn');
 
-            if (!mapObj || !stateLayer || !countyLayer || !pill || !stateBtn || !countyBtn || !colorModeSelect || !dataModePill || !yearModeBtn || !changeModeBtn || !scopePill || !groupBtn || !countryBtn || !yearToggle || !yearPill || !year2020Btn || !year2024Btn || !themePill || !themeLightBtn || !themeDarkBtn) {{
+            if (!mapObj || !stateLayer || !countyLayer || !pill || !stateBtn || !countyBtn || !colorModeSelect || !stateFilterSelect || !dataModePill || !yearModeBtn || !changeModeBtn || !scopePill || !groupBtn || !countryBtn || !yearToggle || !yearPill || !year2020Btn || !year2024Btn || !themePill || !themeLightBtn || !themeDarkBtn) {{
                 return false;
             }}
 
             var activeColorMode = 'winner';
+            var activeStateFilter = 'ALL';
             var activeDataMode = 'year';
             var activeScope = 'group';
             var activeViewMode = 'state';
             var activeYear = '2024';
             var activeTheme = 'dark';
+
+            function matchesStateFilter(props) {{
+                if (activeStateFilter === 'ALL') return true;
+                return !!(props && props.state === activeStateFilter);
+            }}
+
+            function refreshStateFilterOptions(forceAll) {{
+                var options = (activeScope === 'group') ? groupStateOptions : countryStateOptions;
+                var previousValue = activeStateFilter;
+                var html = '<option value="ALL">All States</option>';
+                options.forEach(function(abbr) {{
+                    html += '<option value="' + abbr + '">' + abbr + '</option>';
+                }});
+                stateFilterSelect.innerHTML = html;
+
+                var canKeepSelection = !forceAll && previousValue !== 'ALL' && options.indexOf(previousValue) !== -1;
+                activeStateFilter = canKeepSelection ? previousValue : 'ALL';
+                stateFilterSelect.value = activeStateFilter;
+            }}
 
             function isInScope(props) {{
                 if (activeScope === 'country') return true;
@@ -777,6 +814,13 @@ def create_state_level_map():
                     return;
                 }}
 
+                if (!matchesStateFilter(props)) {{
+                    if (layer._path) {{
+                        layer._path.style.display = 'none';
+                    }}
+                    return;
+                }}
+
                 if (!isInScope(props)) {{
                     if (layer._path) {{
                         layer._path.style.display = 'none';
@@ -791,14 +835,18 @@ def create_state_level_map():
                 var color = props[key] || props.gradient_color || '#7f5fbf';
                 var strokeColor = (activeTheme === 'light') ? '#000000' : color;
 
+                // Keep outlines from looking too thick at low zoom levels.
+                var zoom = (mapObj && mapObj.getZoom) ? mapObj.getZoom() : 6;
+                var weightScale = Math.max(0.35, Math.min(1.0, zoom / 6.0));
+
                 // In county mode, keep state outlines thick but neutral (no election color).
                 if (!isCountyLayer && activeViewMode === 'county') {{
                     color = (activeTheme === 'light') ? '#ffffff' : '#9a9a9a';
                     strokeColor = (activeTheme === 'light') ? '#000000' : color;
                 }}
 
-                var baseWeight = isCountyLayer ? 1.1 : 2.5;
-                var hoverWeight = isCountyLayer ? 1.8 : 3.5;
+                var baseWeight = (isCountyLayer ? 1.1 : 2.5) * weightScale;
+                var hoverWeight = (isCountyLayer ? 1.8 : 3.5) * weightScale;
                 var baseFill = (!isCountyLayer && activeViewMode === 'county') ? 0.0 : 0.2;
                 var hoverFill = (!isCountyLayer && activeViewMode === 'county') ? 0.0 : 0.35;
 
@@ -838,6 +886,21 @@ def create_state_level_map():
                         syncFeaturePropertiesToYear(layer);
                         styleFeatureLayer(layer, true, false);
                         if (layer.closeTooltip) layer.closeTooltip();
+                    }});
+                }}
+            }}
+
+            function refreshStylesForZoom() {{
+                if (stateLayer.eachLayer) {{
+                    stateLayer.eachLayer(function(layer) {{
+                        syncFeaturePropertiesToYear(layer);
+                        styleFeatureLayer(layer, false, false);
+                    }});
+                }}
+                if (countyLayer.eachLayer) {{
+                    countyLayer.eachLayer(function(layer) {{
+                        syncFeaturePropertiesToYear(layer);
+                        styleFeatureLayer(layer, true, false);
                     }});
                 }}
             }}
@@ -882,7 +945,7 @@ def create_state_level_map():
             function setStatePointerEvents(enabled) {{
                 if (!stateLayer.eachLayer) return;
                 stateLayer.eachLayer(function(layer) {{
-                    var inScope = !!(layer && layer.feature && layer.feature.properties && isInScope(layer.feature.properties));
+                    var inScope = !!(layer && layer.feature && layer.feature.properties && isInScope(layer.feature.properties) && matchesStateFilter(layer.feature.properties));
                     var shouldEnable = enabled && inScope;
                     if (layer.options) {{
                         layer.options.interactive = shouldEnable;
@@ -900,8 +963,31 @@ def create_state_level_map():
                 }});
             }}
 
+            function zoomToSelectedState() {{
+                if (activeStateFilter === 'ALL' || !stateLayer.eachLayer) {{
+                    return;
+                }}
+                var selectedBounds = null;
+                stateLayer.eachLayer(function(layer) {{
+                    if (!layer || !layer.feature || !layer.feature.properties) return;
+                    if (layer.feature.properties.state !== activeStateFilter) return;
+                    if (!layer.getBounds) return;
+                    var b = layer.getBounds();
+                    if (!b || !b.isValid || !b.isValid()) return;
+                    if (!selectedBounds) {{
+                        selectedBounds = b;
+                    }} else {{
+                        selectedBounds.extend(b);
+                    }}
+                }});
+                if (selectedBounds && selectedBounds.isValid && selectedBounds.isValid()) {{
+                    mapObj.fitBounds(selectedBounds, {{padding: [16, 16]}});
+                }}
+            }}
+
             function setScope(mode) {{
                 activeScope = mode;
+                refreshStateFilterOptions(mode === 'country');
                 if (mode === 'country') {{
                     scopePill.style.transform = 'translateX(88px)';
                     scopePill.textContent = 'Country';
@@ -948,6 +1034,12 @@ def create_state_level_map():
             colorModeSelect.addEventListener('change', function(e) {{
                 applyColorMode(e.target.value);
             }});
+            stateFilterSelect.addEventListener('change', function(e) {{
+                activeStateFilter = e.target.value;
+                setStatePointerEvents(activeViewMode === 'state');
+                applyColorMode(activeColorMode);
+                zoomToSelectedState();
+            }});
             yearModeBtn.addEventListener('click', function() {{
                 setDataMode('year');
             }});
@@ -975,12 +1067,16 @@ def create_state_level_map():
 
             bindHoverHandlers(stateLayer, false);
             bindHoverHandlers(countyLayer, true);
+            if (mapObj && mapObj.on) {{
+                mapObj.on('zoomend', refreshStylesForZoom);
+            }}
 
             applyTheme('dark');
             applyYear('2024');
             setDataMode('year');
             setMode('state');
             setScope('group');
+            refreshStateFilterOptions(false);
             applyColorMode(colorModeSelect.value);
             return true;
         }}
