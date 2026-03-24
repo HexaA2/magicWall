@@ -686,6 +686,39 @@ def create_state_level_map():
     '''
     m.get_root().html.add_child(folium.Element(theme_toggle_html))
 
+    stats_bars_html = '''
+    <div id="statsContainer" style="position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; width: 90%; max-width: 600px; background: #242424; border: 2px solid #9D4EDD; border-radius: 10px; padding: 12px; display: none; box-sizing: border-box;">
+        <div style="font-size: 11px; color: #B59FFF; font-weight: 600; margin-bottom: 8px; text-align: center;">Election Statistics</div>
+        
+        <div style="margin-bottom: 10px;">
+            <div style="font-size: 10px; color: #9D4EDD; margin-bottom: 4px;">Overall Vote: </div>
+            <div style="display: flex; align-items: center; height: 24px; background: #1a1a1a; border-radius: 4px; overflow: hidden;">
+                <div id="voteBarDem" style="background: #1f77ff; height: 100%; flex: 0; display: flex; align-items: center; justify-content: center; font-size: 9px; color: #ffffff; min-width: 0; transition: flex 0.3s ease;"></div>
+                <div style="background: #ffffff; width: 2px; height: 100%; flex: 0 0 auto;"></div>
+                <div id="voteBarRep" style="background: #ff2b2b; height: 100%; flex: 0; display: flex; align-items: center; justify-content: center; font-size: 9px; color: #ffffff; min-width: 0; transition: flex 0.3s ease;"></div>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 9px; color: #B59FFF; margin-top: 3px;">
+                <span id="voteCountDem"></span>
+                <span id="voteCountRep"></span>
+            </div>
+        </div>
+
+        <div id="countiesSection" style="margin-bottom: 0;">
+            <div style="font-size: 10px; color: #9D4EDD; margin-bottom: 4px;">Counties Won: </div>
+            <div style="display: flex; align-items: center; height: 24px; background: #1a1a1a; border-radius: 4px; overflow: hidden;">
+                <div id="countyBarDem" style="background: #1f77ff; height: 100%; flex: 0; display: flex; align-items: center; justify-content: center; font-size: 9px; color: #ffffff; font-weight: 600; min-width: 0; transition: flex 0.3s ease;"></div>
+                <div style="background: #ffffff; width: 2px; height: 100%; flex: 0 0 auto;"></div>
+                <div id="countyBarRep" style="background: #ff2b2b; height: 100%; flex: 0; display: flex; align-items: center; justify-content: center; font-size: 9px; color: #ffffff; font-weight: 600; min-width: 0; transition: flex 0.3s ease;"></div>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 9px; color: #B59FFF; margin-top: 3px;">
+                <span id="countyCountDem"></span>
+                <span id="countyCountRep"></span>
+            </div>
+        </div>
+    </div>
+    '''
+    m.get_root().html.add_child(folium.Element(stats_bars_html))
+
     slider_script = f'''
     <script>
     (function() {{
@@ -888,6 +921,7 @@ def create_state_level_map():
                         if (layer.closeTooltip) layer.closeTooltip();
                     }});
                 }}
+                updateStatsBar();
             }}
 
             function refreshStylesForZoom() {{
@@ -903,6 +937,7 @@ def create_state_level_map():
                         styleFeatureLayer(layer, true, false);
                     }});
                 }}
+                updateStatsBar();
             }}
 
             function applyYear(year) {{
@@ -918,6 +953,7 @@ def create_state_level_map():
                     return;
                 }}
                 applyColorMode(activeColorMode);
+                updateStatsBar();
             }}
 
             function setDataMode(mode) {{
@@ -985,6 +1021,140 @@ def create_state_level_map():
                 }}
             }}
 
+            function updateStatsBar() {{
+                var statsContainer = document.getElementById('statsContainer');
+                var countiesSection = document.getElementById('countiesSection');
+                if (!statsContainer) return;
+
+                // State mode with single state selected
+                if (activeViewMode === 'state' && activeStateFilter !== 'ALL') {{
+                    if (!stateLayer.eachLayer) {{
+                        statsContainer.style.display = 'none';
+                        return;
+                    }}
+
+                    var demVotes = 0;
+                    var repVotes = 0;
+
+                    stateLayer.eachLayer(function(layer) {{
+                        if (!layer || !layer.feature || !layer.feature.properties) return;
+                        var props = layer.feature.properties;
+
+                        if (props.state !== activeStateFilter) return;
+
+                        var suffix = '_' + activeYear;
+                        var dem = parseInt(props['democrat_votes' + suffix] || 0);
+                        var rep = parseInt(props['republican_votes' + suffix] || 0);
+
+                        demVotes += dem;
+                        repVotes += rep;
+                    }});
+
+                    var totalVotes = demVotes + repVotes;
+                    var demVotesFlex = totalVotes > 0 ? (demVotes / totalVotes) * 100 : 50;
+                    var repVotesFlex = totalVotes > 0 ? (repVotes / totalVotes) * 100 : 50;
+
+                    var voteBarDem = document.getElementById('voteBarDem');
+                    var voteBarRep = document.getElementById('voteBarRep');
+                    var voteCountDem = document.getElementById('voteCountDem');
+                    var voteCountRep = document.getElementById('voteCountRep');
+
+                    if (voteBarDem) {{
+                        voteBarDem.style.flex = demVotesFlex;
+                        voteBarDem.textContent = demVotesFlex > 10 ? Math.round(demVotesFlex) + '%' : '';
+                    }}
+                    if (voteBarRep) {{
+                        voteBarRep.style.flex = repVotesFlex;
+                        voteBarRep.textContent = repVotesFlex > 10 ? Math.round(repVotesFlex) + '%' : '';
+                    }}
+                    if (voteCountDem) voteCountDem.textContent = 'D: ' + demVotes.toLocaleString();
+                    if (voteCountRep) voteCountRep.textContent = 'R: ' + repVotes.toLocaleString();
+
+                    // Hide county bars in state mode
+                    if (countiesSection) countiesSection.style.display = 'none';
+
+                    statsContainer.style.display = 'block';
+                    return;
+                }}
+
+                // County mode
+                if (activeViewMode !== 'county' || !countyLayer.eachLayer) {{
+                    statsContainer.style.display = 'none';
+                    return;
+                }}
+
+                var demVotes = 0;
+                var repVotes = 0;
+                var demCounties = 0;
+                var repCounties = 0;
+
+                countyLayer.eachLayer(function(layer) {{
+                    if (!layer || !layer.feature || !layer.feature.properties) return;
+                    var props = layer.feature.properties;
+
+                    if (props.hide_in_county_view) return;
+                    if (!matchesStateFilter(props)) return;
+                    if (!isInScope(props)) return;
+
+                    var suffix = '_' + activeYear;
+                    var dem = parseInt(props['democrat_votes' + suffix] || 0);
+                    var rep = parseInt(props['republican_votes' + suffix] || 0);
+
+                    demVotes += dem;
+                    repVotes += rep;
+
+                    if (dem > rep) {{
+                        demCounties += 1;
+                    }} else if (rep > dem) {{
+                        repCounties += 1;
+                    }}
+                }});
+
+                var totalVotes = demVotes + repVotes;
+                var totalCounties = demCounties + repCounties;
+
+                var demVotesFlex = totalVotes > 0 ? (demVotes / totalVotes) * 100 : 50;
+                var repVotesFlex = totalVotes > 0 ? (repVotes / totalVotes) * 100 : 50;
+
+                var demCountiesFlex = totalCounties > 0 ? (demCounties / totalCounties) * 100 : 50;
+                var repCountiesFlex = totalCounties > 0 ? (repCounties / totalCounties) * 100 : 50;
+
+                var voteBarDem = document.getElementById('voteBarDem');
+                var voteBarRep = document.getElementById('voteBarRep');
+                var countyBarDem = document.getElementById('countyBarDem');
+                var countyBarRep = document.getElementById('countyBarRep');
+                var voteCountDem = document.getElementById('voteCountDem');
+                var voteCountRep = document.getElementById('voteCountRep');
+                var countyCountDem = document.getElementById('countyCountDem');
+                var countyCountRep = document.getElementById('countyCountRep');
+
+                if (voteBarDem) {{
+                    voteBarDem.style.flex = demVotesFlex;
+                    voteBarDem.textContent = demVotesFlex > 10 ? Math.round(demVotesFlex) + '%' : '';
+                }}
+                if (voteBarRep) {{
+                    voteBarRep.style.flex = repVotesFlex;
+                    voteBarRep.textContent = repVotesFlex > 10 ? Math.round(repVotesFlex) + '%' : '';
+                }}
+                if (countyBarDem) {{
+                    countyBarDem.style.flex = demCountiesFlex;
+                    countyBarDem.textContent = demCounties > 0 ? demCounties : '';
+                }}
+                if (countyBarRep) {{
+                    countyBarRep.style.flex = repCountiesFlex;
+                    countyBarRep.textContent = repCounties > 0 ? repCounties : '';
+                }}
+                if (voteCountDem) voteCountDem.textContent = 'D: ' + demVotes.toLocaleString();
+                if (voteCountRep) voteCountRep.textContent = 'R: ' + repVotes.toLocaleString();
+                if (countyCountDem) countyCountDem.textContent = 'D: ' + demCounties;
+                if (countyCountRep) countyCountRep.textContent = 'R: ' + repCounties;
+
+                // Show county bars in county mode
+                if (countiesSection) countiesSection.style.display = 'block';
+
+                statsContainer.style.display = 'block';
+            }}
+
             function setScope(mode) {{
                 activeScope = mode;
                 refreshStateFilterOptions(mode === 'country');
@@ -1000,6 +1170,7 @@ def create_state_level_map():
 
                 setStatePointerEvents(activeViewMode === 'state');
                 applyColorMode(activeColorMode);
+                updateStatsBar();
             }}
 
             function setMode(mode) {{
@@ -1013,6 +1184,7 @@ def create_state_level_map():
                     if (countyLayer.bringToFront) countyLayer.bringToFront();
                     pill.style.transform = 'translateX(88px)';
                     pill.textContent = 'County';
+                    updateStatsBar();
                 }} else {{
                     activeViewMode = 'state';
                     if (mapObj.hasLayer(countyLayer)) mapObj.removeLayer(countyLayer);
@@ -1023,6 +1195,7 @@ def create_state_level_map():
                     if (stateLayer.bringToFront) stateLayer.bringToFront();
                     pill.style.transform = 'translateX(0px)';
                     pill.textContent = 'State';
+                    updateStatsBar();
                 }}
 
                 // Ensure scope-based visibility (group vs country) is reapplied on mode switch.
@@ -1039,6 +1212,7 @@ def create_state_level_map():
                 setStatePointerEvents(activeViewMode === 'state');
                 applyColorMode(activeColorMode);
                 zoomToSelectedState();
+                updateStatsBar();
             }});
             yearModeBtn.addEventListener('click', function() {{
                 setDataMode('year');
