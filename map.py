@@ -693,8 +693,12 @@ def create_state_level_map():
 
     stats_bars_html = '''
     <div id="statsContainer" style="position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; width: 90%; max-width: 600px; background: #242424; border: 2px solid #9D4EDD; border-radius: 10px; padding: 12px; display: none; box-sizing: border-box;">
-        <div style="font-size: 11px; color: #B59FFF; font-weight: 600; margin-bottom: 8px; text-align: center;">Election Statistics</div>
-        
+        <div style="position: relative; margin-bottom: 8px; min-height: 22px;">
+            <div style="font-size: 11px; color: #B59FFF; font-weight: 600; text-align: center;">Election Statistics</div>
+            <button id="statsToggleBtn" type="button" aria-label="Collapse statistics" title="Collapse statistics" style="display:none; position:absolute; right:0; top:50%; transform:translateY(-50%); width:22px; height:22px; background:#1a1a1a; color:#E0AAFF; border:1px solid #9D4EDD; border-radius:6px; padding:0; font-size:11px; font-weight:700; line-height:1; cursor:pointer;">&#9660;</button>
+        </div>
+
+        <div id="statsPanelContent">
         <div style="margin-bottom: 10px;">
             <div style="font-size: 10px; color: #9D4EDD; margin-bottom: 4px;">Overall Vote: </div>
             <div style="display: flex; align-items: center; height: 24px; background: #1a1a1a; border-radius: 4px; overflow: hidden;">
@@ -719,6 +723,7 @@ def create_state_level_map():
                 <span id="countyCountDem"></span>
                 <span id="countyCountRep"></span>
             </div>
+        </div>
         </div>
     </div>
     '''
@@ -757,8 +762,9 @@ def create_state_level_map():
             var themePill = document.getElementById('themeTogglePill');
             var themeLightBtn = document.getElementById('themeLightBtn');
             var themeDarkBtn = document.getElementById('themeDarkBtn');
+            var statsToggleBtn = document.getElementById('statsToggleBtn');
 
-            if (!mapObj || !stateLayer || !countyLayer || !pill || !stateBtn || !countyBtn || !colorModeSelect || !stateFilterSelect || !dataModePill || !yearModeBtn || !changeModeBtn || !scopePill || !groupBtn || !countryBtn || !yearToggle || !yearPill || !year2020Btn || !year2024Btn || !themePill || !themeLightBtn || !themeDarkBtn) {{
+            if (!mapObj || !stateLayer || !countyLayer || !pill || !stateBtn || !countyBtn || !colorModeSelect || !stateFilterSelect || !dataModePill || !yearModeBtn || !changeModeBtn || !scopePill || !groupBtn || !countryBtn || !yearToggle || !yearPill || !year2020Btn || !year2024Btn || !themePill || !themeLightBtn || !themeDarkBtn || !statsToggleBtn) {{
                 return false;
             }}
 
@@ -769,6 +775,17 @@ def create_state_level_map():
             var activeViewMode = 'state';
             var activeYear = '2024';
             var activeTheme = 'dark';
+            var statsCollapsed = false;
+
+            function setStatsCollapsed(collapsed) {{
+                var statsPanelContent = document.getElementById('statsPanelContent');
+                if (!statsPanelContent) return;
+                statsCollapsed = !!collapsed;
+                statsPanelContent.style.display = statsCollapsed ? 'none' : 'block';
+                statsToggleBtn.innerHTML = statsCollapsed ? '&#9650;' : '&#9660;';
+                statsToggleBtn.setAttribute('aria-label', statsCollapsed ? 'Expand statistics' : 'Collapse statistics');
+                statsToggleBtn.setAttribute('title', statsCollapsed ? 'Expand statistics' : 'Collapse statistics');
+            }}
 
             function matchesStateFilter(props) {{
                 if (activeStateFilter === 'ALL') return true;
@@ -1077,6 +1094,8 @@ def create_state_level_map():
 
                     // Hide county bars in state mode
                     if (countiesSection) countiesSection.style.display = 'none';
+                    statsToggleBtn.style.display = 'none';
+                    setStatsCollapsed(false);
 
                     statsContainer.style.display = 'block';
                     return;
@@ -1156,6 +1175,7 @@ def create_state_level_map():
 
                 // Show county bars in county mode
                 if (countiesSection) countiesSection.style.display = 'block';
+                statsToggleBtn.style.display = 'inline-block';
 
                 statsContainer.style.display = 'block';
             }}
@@ -1243,6 +1263,10 @@ def create_state_level_map():
             themeDarkBtn.addEventListener('click', function() {{
                 applyTheme('dark');
             }});
+            statsToggleBtn.addEventListener('click', function() {{
+                if (activeViewMode !== 'county') return;
+                setStatsCollapsed(!statsCollapsed);
+            }});
 
             bindHoverHandlers(stateLayer, false);
             bindHoverHandlers(countyLayer, true);
@@ -1250,6 +1274,7 @@ def create_state_level_map():
                 mapObj.on('zoomend', refreshStylesForZoom);
             }}
 
+            setStatsCollapsed(false);
             applyTheme('dark');
             applyYear('2024');
             setDataMode('year');
