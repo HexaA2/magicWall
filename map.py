@@ -28,9 +28,7 @@ FIPS_TO_STATE = {v: k for k, v in ALL_STATE_FIPS.items()}
 EXCLUDED_STATE_FIPS = {'02', '15'}  # Alaska, Hawaii
 
 BASE_DIR = Path(__file__).resolve().parent
-# Use legacy 2024 county file so votes align with TIGER county GEOIDs/shapes.
-VOTES_2024_CSV = BASE_DIR / 'data' / 'presElection2024.csv'
-VOTES_2024_CT_STATE_CSV = BASE_DIR / 'data' / '2024_US_County_Level_Presidential_Results.csv'
+VOTES_2024_CSV = BASE_DIR / 'data' / '2024_US_County_Level_Presidential_Results.csv'
 VOTES_2020_CSV = BASE_DIR / 'data' / '2020_US_County_Level_Presidential_Results.csv'
 
 def get_state_bounds(states_gdf):
@@ -118,28 +116,6 @@ def load_votes_from_csvs():
             st['democrat'] += dem
             st['republican'] += rep
             st['third_party'] += third
-
-    # Backfill Connecticut 2024 state totals from the new 2024 county-level file
-    # (which uses planning regions) so CT state tooltip has data even when county
-    # view uses legacy county mapping.
-    ct_2024 = {'democrat': 0, 'republican': 0, 'third_party': 0}
-    if VOTES_2024_CT_STATE_CSV.exists():
-        with VOTES_2024_CT_STATE_CSV.open('r', encoding='utf-8-sig', newline='') as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                geoid = str(row.get('county_fips') or '').zfill(5)
-                if not geoid.startswith('09'):
-                    continue
-                dem = int(float(row.get('votes_dem') or 0))
-                rep = int(float(row.get('votes_gop') or 0))
-                total = int(float(row.get('total_votes') or 0))
-                third = max(0, total - dem - rep)
-                ct_2024['democrat'] += dem
-                ct_2024['republican'] += rep
-                ct_2024['third_party'] += third
-
-    if (ct_2024['democrat'] + ct_2024['republican'] + ct_2024['third_party']) > 0:
-        state_votes_by_year['2024']['CT'] = ct_2024
 
     return state_votes_by_year, county_votes_by_state_year
 
