@@ -619,10 +619,10 @@ def create_state_level_map():
     <div id="dataModeToggle" style="position: fixed; top: 320px; right: 10px; z-index: 9999; width: 178px; background: #242424; border: 2px solid #9D4EDD; border-radius: 999px; padding: 4px; box-sizing: border-box; user-select: none;">
         <div style="position: relative; height: 30px; overflow: hidden; border-radius: 999px;">
             <div style="position: absolute; left: 0; top: 0; width: 84px; height: 30px; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 1; color: #CFAEF4; font-weight: 700; font-size: 12px;">Year</div>
-            <div style="position: absolute; right: 0; top: 0; width: 84px; height: 30px; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 1; color: #CFAEF4; font-weight: 700; font-size: 12px;">Change</div>
+            <div style="position: absolute; right: 0; top: 0; width: 84px; height: 30px; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 1; color: #CFAEF4; font-weight: 700; font-size: 12px;">Swing</div>
             <div id="dataModePill" style="position: absolute; left: 2px; top: 1px; width: 84px; height: 28px; border-radius: 999px; background: #D6C2F8; display: flex; align-items: center; justify-content: center; z-index: 3; color: #1F1530; font-weight: 700; font-size: 12px; transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);">Year</div>
             <button id="yearModeBtn" type="button" style="position: absolute; left: 0; top: 0; width: 84px; height: 30px; border: none; background: transparent; color: transparent; z-index: 4; cursor: pointer;">Year</button>
-            <button id="changeModeBtn" type="button" style="position: absolute; right: 0; top: 0; width: 84px; height: 30px; border: none; background: transparent; color: transparent; z-index: 4; cursor: pointer;">Change</button>
+            <button id="changeModeBtn" type="button" style="position: absolute; right: 0; top: 0; width: 84px; height: 30px; border: none; background: transparent; color: transparent; z-index: 4; cursor: pointer;">Swing</button>
         </div>
     </div>
     '''
@@ -959,7 +959,7 @@ def create_state_level_map():
 
                 if (mode === 'change') {{
                     dataModePill.style.transform = 'translateX(88px)';
-                    dataModePill.textContent = 'Change';
+                    dataModePill.textContent = 'Swing';
                     yearToggle.style.opacity = '0.55';
                     yearToggle.style.pointerEvents = 'none';
                     colorModeSelect.style.opacity = '0.55';
