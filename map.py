@@ -591,7 +591,7 @@ def create_state_level_map():
 
     # Custom top-right slider control for State/County toggle
     slider_control_html = '''
-    <div id="viewToggle" style="position: fixed; top: 10px; right: 10px; z-index: 9999; width: 178px; background: #242424; border: 2px solid #9D4EDD; border-radius: 999px; padding: 4px; box-sizing: border-box; user-select: none;">
+    <div id="viewToggle" style="position: fixed; top: 92px; right: 10px; z-index: 9999; width: 178px; background: #242424; border: 2px solid #9D4EDD; border-radius: 999px; padding: 4px; box-sizing: border-box; user-select: none;">
         <div style="position: relative; height: 30px; overflow: hidden; border-radius: 999px;">
             <div style="position: absolute; left: 0; top: 0; width: 84px; height: 30px; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 1; color: #CFAEF4; font-weight: 700; font-size: 12px;">State</div>
             <div style="position: absolute; right: 0; top: 0; width: 84px; height: 30px; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 1; color: #CFAEF4; font-weight: 700; font-size: 12px;">County</div>
@@ -604,7 +604,7 @@ def create_state_level_map():
     m.get_root().html.add_child(folium.Element(slider_control_html))
 
     color_mode_control_html = '''
-    <div style="position: fixed; top: 62px; right: 10px; z-index: 9999; background: #242424; border: 2px solid #9D4EDD; border-radius: 10px; padding: 8px; width: 178px; box-sizing: border-box;">
+    <div style="position: fixed; top: 10px; right: 10px; z-index: 9999; background: #242424; border: 2px solid #9D4EDD; border-radius: 10px; padding: 8px; width: 178px; box-sizing: border-box;">
         <label for="colorModeSelect" style="display:block; color:#E0AAFF; font-size:12px; font-weight:700; margin-bottom:6px;">Color Mode</label>
         <select id="colorModeSelect" style="width:100%; background:#1a1a1a; color:#E0AAFF; border:1px solid #9D4EDD; border-radius:6px; padding:4px; font-size:12px;">
             <option value="winner" selected>Winner</option>
@@ -642,7 +642,7 @@ def create_state_level_map():
     m.get_root().html.add_child(folium.Element(scope_toggle_html))
 
     year_toggle_html = '''
-    <div id="yearToggle" style="position: fixed; top: 176px; right: 10px; z-index: 9999; width: 178px; background: #242424; border: 2px solid #9D4EDD; border-radius: 999px; padding: 4px; box-sizing: border-box; user-select: none;">
+    <div id="yearToggle" style="position: fixed; top: 168px; right: 10px; z-index: 9999; width: 178px; background: #242424; border: 2px solid #9D4EDD; border-radius: 999px; padding: 4px; box-sizing: border-box; user-select: none;">
         <div style="position: relative; height: 30px; overflow: hidden; border-radius: 999px;">
             <div style="position: absolute; left: 0; top: 0; width: 84px; height: 30px; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 1; color: #CFAEF4; font-weight: 700; font-size: 12px;">2020</div>
             <div style="position: absolute; right: 0; top: 0; width: 84px; height: 30px; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 1; color: #CFAEF4; font-weight: 700; font-size: 12px;">2024</div>
@@ -655,7 +655,7 @@ def create_state_level_map():
     m.get_root().html.add_child(folium.Element(year_toggle_html))
 
     theme_toggle_html = '''
-    <div id="themeToggle" style="position: fixed; top: 252px; right: 10px; z-index: 9999; width: 178px; background: #242424; border: 2px solid #9D4EDD; border-radius: 999px; padding: 4px; box-sizing: border-box; user-select: none;">
+    <div id="themeToggle" style="position: fixed; top: 244px; right: 10px; z-index: 9999; width: 178px; background: #242424; border: 2px solid #9D4EDD; border-radius: 999px; padding: 4px; box-sizing: border-box; user-select: none;">
         <div style="position: relative; height: 30px; overflow: hidden; border-radius: 999px;">
             <div style="position: absolute; left: 0; top: 0; width: 84px; height: 30px; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 1; color: #CFAEF4; font-weight: 700; font-size: 12px;">Light</div>
             <div style="position: absolute; right: 0; top: 0; width: 84px; height: 30px; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 1; color: #CFAEF4; font-weight: 700; font-size: 12px;">Dark</div>
