@@ -6,13 +6,14 @@ import geopandas as gpd
 import folium
 
 # States to include
-TARGET_STATES = ['NY', 'NJ', 'PA', 'ME', 'VA']
+TARGET_STATES = ['NY', 'NJ', 'PA', 'ME', 'VA', 'OH']
 TARGET_STATE_FIPS = {
     'NY': '36',
     'NJ': '34',
     'PA': '42',
     'ME': '23',
-    'VA': '51'
+    'VA': '51',
+    'OH': '39'
 }
 
 ALL_STATE_FIPS = {
@@ -577,7 +578,7 @@ def create_state_level_map():
     county_layer.add_to(m)
 
     available_states = sorted([s for s in states_country['state'].dropna().unique().tolist()])
-    group_filter_states = sorted(['NY', 'NJ', 'PA', 'ME', 'VA'])
+    group_filter_states = sorted(['NY', 'NJ', 'PA', 'ME', 'VA', 'OH'])
 
     state_filter_control_html = f'''
     <div style="position: fixed; top: 100px; left: 50px; z-index: 9999; background: #242424; border: 2px solid #9D4EDD; border-radius: 10px; padding: 8px; width: 178px; box-sizing: border-box;">
