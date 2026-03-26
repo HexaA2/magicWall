@@ -1282,7 +1282,7 @@ def create_state_level_map():
                 font-size:16px; font-weight: bold; padding: 10px; color: #E0AAFF; border-radius: 5px;
                 font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
         <b>East Coast Magic Wall</b><br>
-        NY, NJ, PA, ME, VA<br>
+        ME, NJ, NY, OH, PA, VA<br>
         <span style="font-size: 12px; font-weight: normal; color: #B59FFF;">
             2020/2024 election county and state view
         </span>
